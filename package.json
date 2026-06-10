@@ -1,0 +1,17 @@
+{
+  "name": "pilotage-monorepo",
+  "private": true,
+  "scripts": {
+    "setup":          "npm install --prefix sdk && npm run build --prefix sdk && npm install --prefix pilot-runtime && npm install --prefix indexer",
+    "build:sdk":      "npm run build --prefix sdk",
+    "dev:runtime":    "npm run dev --prefix pilot-runtime",
+    "dev:indexer":    "npm run dev --prefix indexer",
+    "test:contracts": "forge test --root contracts -vv",
+    "demo:reset":     "bash scripts/reset-demo.sh",
+    "demo:drop":      "bash scripts/trigger-price-drop.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}
