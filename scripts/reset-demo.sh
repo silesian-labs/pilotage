@@ -32,11 +32,11 @@ echo ""
 
 USDC_BAL=$(cast call "$USDC_ADDRESS" \
   "balanceOf(address)(uint256)" "$VAULT_ADDRESS" \
-  --rpc-url "$RPC")
+  --rpc-url "$RPC" | cut -d' ' -f1)
 
 AUSDC_BAL=$(cast call "$A_USDC_ADDRESS" \
   "balanceOf(address)(uint256)" "$VAULT_ADDRESS" \
-  --rpc-url "$RPC")
+  --rpc-url "$RPC" | cut -d' ' -f1)
 
 echo "Current vault balances:"
 echo "  USDC  : $USDC_BAL"
@@ -95,19 +95,56 @@ echo "Verifying vault is empty..."
 
 USDC_AFTER=$(cast call "$USDC_ADDRESS" \
   "balanceOf(address)(uint256)" "$VAULT_ADDRESS" \
-  --rpc-url "$RPC")
+  --rpc-url "$RPC" | cut -d' ' -f1)
 
 AUSDC_AFTER=$(cast call "$A_USDC_ADDRESS" \
   "balanceOf(address)(uint256)" "$VAULT_ADDRESS" \
-  --rpc-url "$RPC")
+  --rpc-url "$RPC" | cut -d' ' -f1)
 
 echo "  USDC  : $USDC_AFTER"
 echo "  aUSDC : $AUSDC_AFTER"
 
 if [ "$USDC_AFTER" = "0" ] && [ "$AUSDC_AFTER" = "0" ]; then
-  echo ""
-  echo "✓ Vault is empty. Ready for demo deposit."
+  echo "  ✓ Vault empty"
 else
-  echo ""
-  echo "⚠ Vault still has tokens. Check manually."
+  echo "  ⚠ Vault still has tokens. Check manually."
 fi
+
+# ── 6. Re-deposit USDC into vault ────────────────────────────────────────────
+
+DEPOSIT_AMOUNT="${1:-10000000}"
+
+echo ""
+echo "Re-depositing $DEPOSIT_AMOUNT USDC into vault..."
+
+cast send "$USDC_ADDRESS" \
+  "approve(address,uint256)" "$VAULT_ADDRESS" "$DEPOSIT_AMOUNT" \
+  --private-key "$PRIVATE_KEY" \
+  --rpc-url "$RPC" > /dev/null
+
+cast send "$VAULT_ADDRESS" \
+  "deposit(address,uint256)" "$USDC_ADDRESS" "$DEPOSIT_AMOUNT" \
+  --private-key "$PRIVATE_KEY" \
+  --rpc-url "$RPC" > /dev/null
+
+echo "  ✓ Deposited $DEPOSIT_AMOUNT USDC"
+
+# ── 7. Clear indexer action history ──────────────────────────────────────────
+
+echo ""
+echo "Clearing indexer DB..."
+
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "  ⚠ DATABASE_URL not set — skipping DB clear"
+else
+  node --input-type=module <<EOF 2>&1
+import postgres from '/home/matepal/pilotage/indexer/node_modules/postgres/src/index.js';
+const sql = postgres('${DATABASE_URL}', { onnotice: () => {} });
+const result = await sql\`DELETE FROM actions\`;
+console.log('  ✓ Actions cleared');
+await sql.end();
+EOF
+fi
+
+echo ""
+echo "=== Reset complete. Start pilot and indexer, then trigger a rebalance. ==="
