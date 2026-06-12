@@ -138,7 +138,7 @@ if [ -z "${DATABASE_URL:-}" ]; then
   echo "  ⚠ DATABASE_URL not set — skipping DB clear"
 else
   node --input-type=module <<EOF 2>&1
-import postgres from '/home/matepal/pilotage/indexer/node_modules/postgres/src/index.js';
+import postgres from '$(cd "$(dirname "$0")/.." && pwd)/indexer/node_modules/postgres/src/index.js';
 const sql = postgres('${DATABASE_URL}', { onnotice: () => {} });
 const result = await sql\`DELETE FROM actions\`;
 console.log('  ✓ Actions cleared');
