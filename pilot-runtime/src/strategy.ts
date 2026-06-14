@@ -1,5 +1,15 @@
 import { createPublicClient, http, type Address } from "viem";
 import { CONSERVATIVE_RWA_ABI } from "@pilotage/pilot-sdk";
+
+const GET_DAILY_SPENT_ABI = [
+  {
+    name: "getDailySpent",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "pilot", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
 import type {
   Strategy,
   VaultState,
@@ -89,21 +99,46 @@ export function makeConservativeRWAStrategy(
 
       if (maxAmount === 0n) return { type: "hold" };
 
+      // Read the pilot's remaining daily allowance so the engine reasons over a
+      // real budget constraint, not a guess.
+      let dailySpentUsdc = 0;
+      try {
+        const spent = await client.readContract({
+          address: state.vault,
+          abi: GET_DAILY_SPENT_ABI,
+          functionName: "getDailySpent",
+          args: [state.charter.pilot],
+        });
+        dailySpentUsdc = Number(spent) / 1e6;
+      } catch {
+        dailySpentUsdc = 0;
+      }
+
       const llm = await decideWithGemini({
         usdcValueUsd: Number(usdcVal) / 1e18,
         aUsdcValueUsd: Number(aUsdcVal) / 1e18,
         totalUsd: Number(total) / 1e18,
         targetUsdcPct: config.targetsBps[usdcIdx] / 100,
         driftBps: maxDriftBps,
+        thresholdBps: 500,
         direction,
         maxAmountUsdc: Number(maxAmount) / 1e6,
+        maxSingleUsdc: Number(state.charter.maxSingleAmountIn) / 1e6,
+        maxDailyUsdc: Number(state.charter.maxDailyAmountIn) / 1e6,
+        dailySpentUsdc,
+        aUsdcPriceUsd: Number(state.prices[aUsdcIdx]) / 1e18,
       });
 
       if (llm) {
         console.log(
-          `[pilot:gemini] act=${llm.act} fraction=${llm.fraction.toFixed(2)} — "${llm.reason}"`,
+          `[pilot:gemini] act=${llm.act} fraction=${llm.fraction.toFixed(2)} confidence=${llm.confidence.toFixed(2)} urgency=${llm.urgency}`,
         );
-        if (!llm.act) return { type: "hold" };
+        console.log(`[pilot:gemini] analysis: ${llm.analysis}`);
+        console.log(`[pilot:gemini] reason: "${llm.reason}"`);
+        if (!llm.act) {
+          console.log("[pilot:gemini] decision = HOLD");
+          return { type: "hold" };
+        }
       } else {
         console.log(
           "[pilot:rule-based] LLM unavailable — full corrective move",

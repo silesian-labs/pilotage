@@ -111,6 +111,23 @@ export const VAULT_FACTORY_ABI = [
     outputs: [{ name: "", type: "address" }],
   },
   {
+    name: "allVaultsCount",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "allVaults",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "start", type: "uint256" },
+      { name: "limit", type: "uint256" },
+    ],
+    outputs: [{ name: "result", type: "address[]" }],
+  },
+  {
     name: "VaultCreated",
     type: "event",
     inputs: [

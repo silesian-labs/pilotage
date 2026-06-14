@@ -10,10 +10,16 @@ function optional(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
 }
 
+const vaultAddressEnv = process.env.VAULT_ADDRESS?.trim();
+
 export const config = {
   rpcUrl: required("ARBITRUM_SEPOLIA_RPC"),
   pilotPrivateKey: required("PILOT_PRIVATE_KEY") as Hex,
-  vaultAddress: required("VAULT_ADDRESS") as Address,
+  // Optional: pin to one vault. If unset, the pilot auto-discovers every vault
+  // that hired it via the factory.
+  vaultAddress: vaultAddressEnv ? (vaultAddressEnv as Address) : undefined,
+  vaultFactory: required("VAULT_FACTORY") as Address,
+  discoveryIntervalMs: Number(optional("DISCOVERY_INTERVAL_MS", "60000")),
   oracleAddress: required("ORACLE_ADDRESS") as Address,
   executorAddress: required("CONSERVATIVE_RWA") as Address,
 

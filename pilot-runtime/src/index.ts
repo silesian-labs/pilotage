@@ -11,6 +11,8 @@ const strategy = makeConservativeRWAStrategy(
 
 const pilot = new Pilot(strategy, {
   vaultAddress: config.vaultAddress,
+  vaultFactory: config.vaultFactory,
+  discoveryIntervalMs: config.discoveryIntervalMs,
   pilotPrivateKey: config.pilotPrivateKey,
   oracleAddress: config.oracleAddress,
   tokens: [config.usdc, config.aUsdc],
